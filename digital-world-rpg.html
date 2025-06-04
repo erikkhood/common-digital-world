@@ -62,6 +62,49 @@
             line-height: 1.4;
         }
 
+        .typing-mode-indicator {
+            background: #FF6B35;
+            border: 3px solid #FFD700;
+            color: #FFFFFF;
+            font-size: 20px;
+            font-weight: bold;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            text-align: center;
+            animation: typing-pulse 1.5s infinite;
+            box-shadow: 0 0 20px rgba(255, 107, 53, 0.5);
+        }
+
+        @keyframes typing-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        .typing-input-display {
+            background: #2a2a2a;
+            border: 2px solid #4CAF50;
+            color: #00FF00;
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            min-height: 30px;
+        }
+
+        .typing-instructions {
+            background: #1a1a2e;
+            border: 2px solid #FFD700;
+            color: #FFD700;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-size: 14px;
+            text-align: center;
+        }
+
         .interaction-hint {
             font-size: 20px;
             color: #FFFF00;
@@ -173,6 +216,15 @@
         <div class="interaction-hint" id="interactionHint" style="display: none;">
             🎯 PRESS SPACE TO TALK TO NPC! 🎯
         </div>
+        <div class="typing-mode-indicator" id="typingModeIndicator" style="display: none;">
+            ⌨️ TYPING MODE ACTIVE ⌨️
+        </div>
+        <div class="typing-input-display" id="typingInputDisplay" style="display: none;">
+            You typed: <span id="typingText"></span>
+        </div>
+        <div class="typing-instructions" id="typingInstructions" style="display: none;">
+            Press ENTER to send message • Press ESC to cancel typing
+        </div>
         <div class="controls">
             <div class="controls-title">🎮 HOW TO PLAY</div>
             <strong>Movement:</strong> Use WASD or Arrow Keys to move around<br>
@@ -204,6 +256,12 @@
                 this.locationInfo = document.getElementById('locationInfo');
                 this.interactionHint = document.getElementById('interactionHint');
                 this.npcDistance = document.getElementById('npcDistance');
+                
+                // Typing mode UI elements
+                this.typingModeIndicator = document.getElementById('typingModeIndicator');
+                this.typingInputDisplay = document.getElementById('typingInputDisplay');
+                this.typingInstructions = document.getElementById('typingInstructions');
+                this.typingText = document.getElementById('typingText');
                 
                 // Game overlay elements
                 this.gameOverlay = document.getElementById('gameOverlay');
@@ -344,7 +402,8 @@
                         // Press 'T' to enter typing mode
                         if (e.key.toLowerCase() === 't' && !this.typingMode) {
                             this.typingMode = true;
-                            this.status.textContent = `💬 TYPING MODE: Type your message to ${this.currentBuilding.npc.name}. Press ENTER to send or ESC to cancel.`;
+                            this.showTypingUI();
+                            this.status.textContent = `💬 Ready to type to ${this.currentBuilding.npc.name}!`;
                             return;
                         }
                         
@@ -352,19 +411,21 @@
                         if (this.typingMode) {
                             if (e.key.length === 1) {
                                 this.currentInput += e.key;
-                                this.status.textContent = `💬 Typing: "${this.currentInput}" | Press ENTER to send or ESC to cancel`;
+                                this.updateTypingDisplay();
                                 return;
                             } else if (e.key === 'Backspace') {
                                 this.currentInput = this.currentInput.slice(0, -1);
-                                this.status.textContent = `💬 Typing: "${this.currentInput}" | Press ENTER to send or ESC to cancel`;
+                                this.updateTypingDisplay();
                                 return;
                             } else if (e.key === 'Enter') {
                                 this.processInput();
                                 this.typingMode = false;
+                                this.hideTypingUI();
                                 return;
                             } else if (e.key === 'Escape') {
                                 this.currentInput = '';
                                 this.typingMode = false;
+                                this.hideTypingUI();
                                 this.status.textContent = `Cancelled typing. Press T to type again, or Space to talk to ${this.currentBuilding.npc.name}.`;
                                 return;
                             }
@@ -422,19 +483,27 @@
                 if (this.keys['a'] || this.keys['arrowleft']) newX -= this.player.speed;
                 if (this.keys['d'] || this.keys['arrowright']) newX += this.player.speed;
 
-                // Boundary checking
+                // Fixed boundary checking - prevent getting stuck at edges
                 if (newX >= 0 && newX <= this.canvas.width - this.player.size) {
                     this.player.x = newX;
+                } else {
+                    // Push player slightly away from edge if they get too close
+                    if (newX < 0) this.player.x = 1;
+                    if (newX > this.canvas.width - this.player.size) this.player.x = this.canvas.width - this.player.size - 1;
                 }
+                
                 if (newY >= 0 && newY <= this.canvas.height - this.player.size) {
                     this.player.y = newY;
+                } else {
+                    // Push player slightly away from edge if they get too close
+                    if (newY < 0) this.player.y = 1;
+                    if (newY > this.canvas.height - this.player.size) this.player.y = this.canvas.height - this.player.size - 1;
                 }
 
                 if (this.currentScreen === 'overworld') {
                     this.checkBuildingCollisions();
                     this.checkBuildingEntry();
-                    this.interactionHint.style.display = 'none';
-                    this.npcDistance.style.display = 'none';
+                    this.hideTypingUI();
                 } else if (this.currentScreen === 'interior') {
                     this.checkInteriorExit();
                     this.updateNPCInteraction();
@@ -821,6 +890,24 @@
                 this.gameFrame.src = '';
                 this.gameOverlay.style.display = 'none';
                 this.status.textContent = `Welcome back! You can continue exploring or try another mini-game.`;
+            }
+
+            hideTypingUI() {
+                this.typingModeIndicator.style.display = 'none';
+                this.typingInputDisplay.style.display = 'none';
+                this.typingInstructions.style.display = 'none';
+                this.interactionHint.style.display = 'none';
+                this.npcDistance.style.display = 'none';
+            }
+
+            showTypingUI() {
+                this.typingModeIndicator.style.display = 'block';
+                this.typingInputDisplay.style.display = 'block';
+                this.typingInstructions.style.display = 'block';
+            }
+
+            updateTypingDisplay() {
+                this.typingText.textContent = this.currentInput;
             }
         }
 
