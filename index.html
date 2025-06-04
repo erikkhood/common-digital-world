@@ -23,6 +23,7 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 0 20px rgba(0, 123, 255, 0.3);
+            position: relative;
         }
 
         canvas {
@@ -63,46 +64,64 @@
         }
 
         .typing-mode-indicator {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
             background: #FF6B35;
             border: 3px solid #FFD700;
             color: #FFFFFF;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
-            padding: 15px;
-            margin: 10px 0;
+            padding: 12px 20px;
             border-radius: 10px;
             text-align: center;
             animation: typing-pulse 1.5s infinite;
             box-shadow: 0 0 20px rgba(255, 107, 53, 0.5);
+            z-index: 100;
+            max-width: 300px;
         }
 
         @keyframes typing-pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-            100% { transform: scale(1); }
+            0% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.02); }
+            100% { transform: translateX(-50%) scale(1); }
         }
 
         .typing-input-display {
-            background: #2a2a2a;
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(42, 42, 42, 0.95);
             border: 2px solid #4CAF50;
             color: #00FF00;
             font-family: 'Courier New', monospace;
-            font-size: 18px;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 5px;
-            min-height: 30px;
+            font-size: 16px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            min-width: 300px;
+            max-width: 500px;
+            text-align: center;
+            z-index: 100;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
         }
 
         .typing-instructions {
-            background: #1a1a2e;
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(26, 26, 46, 0.95);
             border: 2px solid #FFD700;
             color: #FFD700;
-            padding: 10px;
-            margin: 5px 0;
+            padding: 10px 15px;
             border-radius: 5px;
             font-size: 14px;
             text-align: center;
+            z-index: 100;
+            max-width: 400px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
         }
 
         .interaction-hint {
