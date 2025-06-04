@@ -241,7 +241,10 @@
         <div class="game-frame-container">
             <div class="game-frame-header">
                 <div>🎮 <span id="gameTitle">Mini-Game</span> 🎮</div>
-                <button class="game-frame-close" id="closeGame">×</button>
+                <div>
+                    <button class="game-frame-close" id="openInNewTab" style="background: #4CAF50; margin-right: 10px;">🔗</button>
+                    <button class="game-frame-close" id="closeGame">×</button>
+                </div>
             </div>
             <iframe class="game-iframe" id="gameFrame" src=""></iframe>
         </div>
@@ -268,6 +271,7 @@
                 this.gameFrame = document.getElementById('gameFrame');
                 this.gameTitle = document.getElementById('gameTitle');
                 this.closeGameBtn = document.getElementById('closeGame');
+                this.openInNewTabBtn = document.getElementById('openInNewTab');
                 
                 // Game state
                 this.currentScreen = 'overworld';
@@ -276,6 +280,7 @@
                 this.lastDistance = 0;
                 this.typingMode = false;
                 this.gameMode = false;
+                this.currentGameUrl = '';
                 
                 // Player properties
                 this.player = {
@@ -870,6 +875,14 @@
                     this.closeMiniGame();
                 });
                 
+                // Open in new tab button
+                this.openInNewTabBtn.addEventListener('click', () => {
+                    if (this.currentGameUrl) {
+                        window.open(this.currentGameUrl, '_blank');
+                        this.status.textContent = 'Game opened in new tab! You can continue exploring here.';
+                    }
+                });
+                
                 // ESC key to close game
                 document.addEventListener('keydown', (e) => {
                     if (e.key === 'Escape' && this.gameMode) {
@@ -883,12 +896,43 @@
                 this.gameFrame.src = gameUrl;
                 this.gameTitle.textContent = `${npcName}'s Mini-Game`;
                 this.gameOverlay.style.display = 'flex';
+                this.currentGameUrl = gameUrl;
+                
+                // Set up a fallback timer in case iframe is blocked
+                const fallbackTimer = setTimeout(() => {
+                    this.handleIframeBlocked(gameUrl, npcName);
+                }, 3000); // Wait 3 seconds for iframe to load
+                
+                // Clear timer if iframe loads successfully
+                this.gameFrame.onload = () => {
+                    clearTimeout(fallbackTimer);
+                };
+                
+                // Handle iframe errors immediately
+                this.gameFrame.onerror = () => {
+                    clearTimeout(fallbackTimer);
+                    this.handleIframeBlocked(gameUrl, npcName);
+                };
+            }
+
+            handleIframeBlocked(gameUrl, npcName) {
+                // Close the iframe overlay
+                this.closeMiniGame();
+                
+                // Show explanation and provide new tab option
+                this.status.innerHTML = `
+                    ${npcName}: "The game couldn't load directly here due to security settings, but I can open it in a new tab! 
+                    <a href="${gameUrl}" target="_blank" style="color: #4CAF50; text-decoration: underline;">
+                        🎮 Click here to play ${npcName}'s Mini-Game! 🎮
+                    </a>"
+                `;
             }
 
             closeMiniGame() {
                 this.gameMode = false;
                 this.gameFrame.src = '';
                 this.gameOverlay.style.display = 'none';
+                this.currentGameUrl = '';
                 this.status.textContent = `Welcome back! You can continue exploring or try another mini-game.`;
             }
 
