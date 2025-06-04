@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Citizenship World</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            color: white;
+        }
+
+        .game-container {
+            text-align: center;
+            background: #16213e;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 123, 255, 0.3);
+        }
+
+        canvas {
+            border: 3px solid #0f3460;
+            border-radius: 8px;
+            background: #2d5016;
+        }
+
+        .controls {
+            margin-top: 15px;
+            font-size: 16px;
+            color: #FFD700;
+            background: #1a1a2e;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #4CAF50;
+            line-height: 1.6;
+        }
+
+        .controls-title {
+            font-size: 18px;
+            color: #4CAF50;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .status {
+            margin: 10px 0;
+            font-size: 18px;
+            color: #4CAF50;
+            min-height: 50px;
+            background: #1a1a2e;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #87CEEB;
+            line-height: 1.4;
+        }
+
+        .interaction-hint {
+            font-size: 20px;
+            color: #FFFF00;
+            background: #8B0000;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 2px solid #FFD700;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .npc-distance {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #FFD700;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 16px;
+            border: 2px solid #4CAF50;
+        }
+
+        .game-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .game-frame-container {
+            width: 95%;
+            height: 95%;
+            background: #1a1a2e;
+            border-radius: 15px;
+            border: 3px solid #4CAF50;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .game-frame-header {
+            background: #16213e;
+            padding: 15px;
+            color: #FFD700;
+            text-align: center;
+            font-size: 18px;
+            border-bottom: 2px solid #4CAF50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .game-frame-close {
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .game-frame-close:hover {
+            background: #d32f2f;
+        }
+
+        .game-iframe {
+            flex: 1;
+            border: none;
+            width: 100%;
+        }
+
+        .title {
+            font-size: 24px;
+            color: #FFD700;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .location-info {
+            font-size: 14px;
+            color: #87CEEB;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="title">💻 Digital Citizenship World 💻</div>
+        <div class="location-info" id="locationInfo">Digital Plaza</div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="npc-distance" id="npcDistance" style="display: none;">📍 Distance to NPC: --</div>
+        <div class="status" id="status">Welcome to the Digital World! Explore and learn about online citizenship.</div>
+        <div class="interaction-hint" id="interactionHint" style="display: none;">
+            🎯 PRESS SPACE TO TALK TO NPC! 🎯
+        </div>
+        <div class="controls">
+            <div class="controls-title">🎮 HOW TO PLAY</div>
+            <strong>Movement:</strong> Use WASD or Arrow Keys to move around<br>
+            <strong>Enter Buildings:</strong> Walk through the bright GREEN/YELLOW door highlights<br>
+            <strong>Talk to NPCs:</strong> Get close and press SPACE for dialogue<br>
+            <strong>Type to NPCs:</strong> Press T to enter typing mode, then type your message<br>
+            <strong>Mini-Games:</strong> Type "game" or "game?" and press ENTER - plays inside the RPG!<br>
+            <strong>Exit/Cancel:</strong> Press ESC to leave buildings, cancel typing, or close mini-games
+        </div>
+    </div>
+    
+    <!-- Game Overlay for Mini-Games -->
+    <div class="game-overlay" id="gameOverlay">
+        <div class="game-frame-container">
+            <div class="game-frame-header">
+                <div>🎮 <span id="gameTitle">Mini-Game</span> 🎮</div>
+                <button class="game-frame-close" id="closeGame">×</button>
+            </div>
+            <iframe class="game-iframe" id="gameFrame" src=""></iframe>
+        </div>
+    </div>
+
+    <script>
+        class RPGGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.status = document.getElementById('status');
+                this.locationInfo = document.getElementById('locationInfo');
+                this.interactionHint = document.getElementById('interactionHint');
+                this.npcDistance = document.getElementById('npcDistance');
+                
+                // Game overlay elements
+                this.gameOverlay = document.getElementById('gameOverlay');
+                this.gameFrame = document.getElementById('gameFrame');
+                this.gameTitle = document.getElementById('gameTitle');
+                this.closeGameBtn = document.getElementById('closeGame');
+                
+                // Game state
+                this.currentScreen = 'overworld';
+                this.currentBuilding = null;
+                this.currentInput = '';
+                this.lastDistance = 0;
+                this.typingMode = false;
+                this.gameMode = false;
+                
+                // Player properties
+                this.player = {
+                    x: 400,
+                    y: 500,
+                    size: 16,
+                    speed: 3,
+                    color: '#4169E1'
+                };
+
+                // Game world
+                this.tileSize = 32;
+                this.mapWidth = 25;
+                this.mapHeight = 19;
+                
+                // Buildings and their interiors - Digital Citizenship Theme
+                this.buildings = [
+                    { 
+                        x: 2, y: 2, width: 3, height: 3, type: 'house', 
+                        name: 'Cybersecurity Hub', color: '#8B4513',
+                        npc: { name: 'Security Expert Sam', x: 300, y: 200, color: '#CD853F', 
+                              dialogue: "🔒 Welcome! I teach about passwords, online safety, and digital security. Stay safe out there!" }
+                    },
+                    { 
+                        x: 8, y: 3, width: 4, height: 3, type: 'house', 
+                        name: 'Scam Bar', color: '#A0522D',
+                        npc: { name: 'Sketchy Pete', x: 400, y: 250, color: '#DDA0DD',
+                              dialogue: "💰 Psst... want to learn about scams? I'll teach you the red flags! Ask me about a 'Game?' *winks*",
+                              gameLink: "https://erikkhood.github.io/click-it-or-skip-it/" }
+                    },
+                    { 
+                        x: 15, y: 2, width: 3, height: 2, type: 'house', 
+                        name: 'Privacy Center', color: '#9370DB',
+                        npc: { name: 'Privacy Guardian Maya', x: 350, y: 180, color: '#4B0082',
+                              dialogue: "🛡️ Your privacy matters! I help protect your digital footprint and personal data." }
+                    },
+                    { 
+                        x: 20, y: 4, width: 3, height: 3, type: 'house', 
+                        name: 'Digital Store', color: '#CD853F',
+                        npc: { name: 'Merchant Tom', x: 450, y: 220, color: '#228B22',
+                              dialogue: "🛒 Everything a digital citizen needs! From secure browsers to privacy tools!" }
+                    },
+                    { 
+                        x: 3, y: 8, width: 2, height: 2, type: 'house', 
+                        name: 'Digital Wellness', color: '#DEB887',
+                        npc: { name: 'Wellness Coach Emma', x: 250, y: 200, color: '#FFB6C1',
+                              dialogue: "💚 Hello! I help people build healthy relationships with technology. Balance is key!" }
+                    },
+                    { 
+                        x: 10, y: 9, width: 5, height: 4, type: 'castle', 
+                        name: 'Artificial Intelligence Center', color: '#708090',
+                        npc: { name: 'AI Researcher Dr. Alex', x: 500, y: 300, color: '#B8860B',
+                              dialogue: "🤖 Welcome to the AI Center! I study how artificial intelligence can serve humanity. Want to try a 'Game?' about AI ethics?",
+                              gameLink: "https://erikkhood.github.io/two-truths-and-ai-v.2/" }
+                    },
+                    { 
+                        x: 18, y: 10, width: 2, height: 2, type: 'house', 
+                        name: 'Digital Rights Office', color: '#228B22',
+                        npc: { name: 'Rights Advocate Jordan', x: 300, y: 180, color: '#90EE90',
+                              dialogue: "⚖️ Digital rights are human rights! I fight for online freedom and equality." }
+                    },
+                    { 
+                        x: 6, y: 14, width: 3, height: 2, type: 'house', 
+                        name: 'Creator Studio', color: '#B22222',
+                        npc: { name: 'Content Creator Casey', x: 400, y: 200, color: '#A0522D',
+                              dialogue: "📱 Hey! I create content and teach digital literacy. Creating good content is an art!" }
+                    },
+                    { 
+                        x: 15, y: 15, width: 4, height: 3, type: 'temple', 
+                        name: 'Comment Section', color: '#FFD700',
+                        npc: { name: 'Moderator Morgan', x: 400, y: 250, color: '#F0E68C',
+                              dialogue: "💬 Welcome to the Comment Section! I keep online discussions civil. Try my 'Game?' about online etiquette!",
+                              gameLink: "https://erikkhood.github.io/straight-to-the-comments/" }
+                    }
+                ];
+
+                // Path system
+                this.paths = this.generatePaths();
+                
+                this.keys = {};
+                this.setupEventListeners();
+                this.setupGameOverlay();
+                this.gameLoop();
+            }
+
+            generatePaths() {
+                const paths = new Set();
+                
+                // Main horizontal path
+                for (let x = 0; x < this.mapWidth; x++) {
+                    paths.add(`${x},${Math.floor(this.mapHeight / 2)}`);
+                }
+                
+                // Main vertical path
+                for (let y = 0; y < this.mapHeight; y++) {
+                    paths.add(`${Math.floor(this.mapWidth / 2)},${y}`);
+                }
+                
+                // Connecting paths to buildings
+                this.buildings.forEach(building => {
+                    const centerX = building.x + Math.floor(building.width / 2);
+                    const centerY = building.y + Math.floor(building.height / 2);
+                    
+                    // Path to main horizontal road
+                    const mainY = Math.floor(this.mapHeight / 2);
+                    for (let y = Math.min(centerY, mainY); y <= Math.max(centerY, mainY); y++) {
+                        paths.add(`${centerX},${y}`);
+                    }
+                    
+                    // Path to main vertical road
+                    const mainX = Math.floor(this.mapWidth / 2);
+                    for (let x = Math.min(centerX, mainX); x <= Math.max(centerX, mainX); x++) {
+                        paths.add(`${x},${centerY}`);
+                    }
+                });
+                
+                return paths;
+            }
+
+            setupEventListeners() {
+                document.addEventListener('keydown', (e) => {
+                    // Handle typing mode toggle when inside buildings
+                    if (this.currentScreen === 'interior' && this.currentBuilding) {
+                        // Press 'T' to enter typing mode
+                        if (e.key.toLowerCase() === 't' && !this.typingMode) {
+                            this.typingMode = true;
+                            this.status.textContent = `💬 TYPING MODE: Type your message to ${this.currentBuilding.npc.name}. Press ENTER to send or ESC to cancel.`;
+                            return;
+                        }
+                        
+                        // In typing mode, handle all text input
+                        if (this.typingMode) {
+                            if (e.key.length === 1) {
+                                this.currentInput += e.key;
+                                this.status.textContent = `💬 Typing: "${this.currentInput}" | Press ENTER to send or ESC to cancel`;
+                                return;
+                            } else if (e.key === 'Backspace') {
+                                this.currentInput = this.currentInput.slice(0, -1);
+                                this.status.textContent = `💬 Typing: "${this.currentInput}" | Press ENTER to send or ESC to cancel`;
+                                return;
+                            } else if (e.key === 'Enter') {
+                                this.processInput();
+                                this.typingMode = false;
+                                return;
+                            } else if (e.key === 'Escape') {
+                                this.currentInput = '';
+                                this.typingMode = false;
+                                this.status.textContent = `Cancelled typing. Press T to type again, or Space to talk to ${this.currentBuilding.npc.name}.`;
+                                return;
+                            }
+                        }
+                    }
+                    
+                    // Normal key handling (movement, etc.)
+                    this.keys[e.key.toLowerCase()] = true;
+                    if (e.key === ' ') {
+                        e.preventDefault();
+                        this.interact();
+                    }
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        this.exitBuilding();
+                    }
+                });
+
+                document.addEventListener('keyup', (e) => {
+                    // Only handle movement key releases when not in typing mode
+                    if (!this.typingMode) {
+                        this.keys[e.key.toLowerCase()] = false;
+                    }
+                });
+            }
+
+            processInput() {
+                const input = this.currentInput.toLowerCase();
+                if (input.includes('game')) {
+                    const npc = this.currentBuilding.npc;
+                    if (npc.gameLink) {
+                        this.openMiniGame(npc.gameLink, npc.name);
+                        this.status.textContent = `${npc.name}: "Enjoy the mini-game! Press the X button to return when you're done!"`;
+                    } else {
+                        this.status.textContent = `${npc.name}: "Sorry, I don't have any games available right now!"`;
+                    }
+                } else {
+                    this.status.textContent = `${this.currentBuilding.npc.name}: "I didn't quite understand that. Try asking about a 'game' or 'game?'"`;
+                }
+                this.currentInput = '';
+            }
+
+            update() {
+                // Don't allow movement when in typing mode or game mode
+                if (this.typingMode || this.gameMode) {
+                    return;
+                }
+                
+                let newX = this.player.x;
+                let newY = this.player.y;
+
+                // Movement
+                if (this.keys['w'] || this.keys['arrowup']) newY -= this.player.speed;
+                if (this.keys['s'] || this.keys['arrowdown']) newY += this.player.speed;
+                if (this.keys['a'] || this.keys['arrowleft']) newX -= this.player.speed;
+                if (this.keys['d'] || this.keys['arrowright']) newX += this.player.speed;
+
+                // Boundary checking
+                if (newX >= 0 && newX <= this.canvas.width - this.player.size) {
+                    this.player.x = newX;
+                }
+                if (newY >= 0 && newY <= this.canvas.height - this.player.size) {
+                    this.player.y = newY;
+                }
+
+                if (this.currentScreen === 'overworld') {
+                    this.checkBuildingCollisions();
+                    this.checkBuildingEntry();
+                    this.interactionHint.style.display = 'none';
+                    this.npcDistance.style.display = 'none';
+                } else if (this.currentScreen === 'interior') {
+                    this.checkInteriorExit();
+                    this.updateNPCInteraction();
+                }
+            }
+
+            checkBuildingCollisions() {
+                this.buildings.forEach(building => {
+                    const buildingPixelX = building.x * this.tileSize;
+                    const buildingPixelY = building.y * this.tileSize;
+                    const buildingPixelWidth = building.width * this.tileSize;
+                    const buildingPixelHeight = building.height * this.tileSize;
+
+                    // Don't check collision with the door area
+                    const doorX = (building.x + building.width/2) * this.tileSize - 12;
+                    const doorY = (building.y + building.height) * this.tileSize - 20;
+                    const doorWidth = 24;
+                    const doorHeight = 20;
+
+                    // Skip collision if player is in door area
+                    if (this.player.x + this.player.size/2 >= doorX &&
+                        this.player.x + this.player.size/2 <= doorX + doorWidth &&
+                        this.player.y + this.player.size >= doorY &&
+                        this.player.y <= doorY + doorHeight) {
+                        return; // Skip collision for this building
+                    }
+
+                    if (this.player.x < buildingPixelX + buildingPixelWidth &&
+                        this.player.x + this.player.size > buildingPixelX &&
+                        this.player.y < buildingPixelY + buildingPixelHeight &&
+                        this.player.y + this.player.size > buildingPixelY) {
+                        
+                        // Push player back
+                        const overlapX = Math.min(this.player.x + this.player.size - buildingPixelX, 
+                                                buildingPixelX + buildingPixelWidth - this.player.x);
+                        const overlapY = Math.min(this.player.y + this.player.size - buildingPixelY, 
+                                                buildingPixelY + buildingPixelHeight - this.player.y);
+                        
+                        if (overlapX < overlapY) {
+                            if (this.player.x < buildingPixelX) {
+                                this.player.x = buildingPixelX - this.player.size;
+                            } else {
+                                this.player.x = buildingPixelX + buildingPixelWidth;
+                            }
+                        } else {
+                            if (this.player.y < buildingPixelY) {
+                                this.player.y = buildingPixelY - this.player.size;
+                            } else {
+                                this.player.y = buildingPixelY + buildingPixelHeight;
+                            }
+                        }
+                    }
+                });
+            }
+
+            checkBuildingEntry() {
+                this.buildings.forEach(building => {
+                    const doorX = (building.x + building.width/2) * this.tileSize - 12;
+                    const doorY = (building.y + building.height) * this.tileSize - 20;
+                    const doorWidth = 24;
+                    const doorHeight = 20;
+
+                    // Check if player is near the door area
+                    if (this.player.x + this.player.size/2 >= doorX &&
+                        this.player.x + this.player.size/2 <= doorX + doorWidth &&
+                        this.player.y + this.player.size >= doorY &&
+                        this.player.y <= doorY + doorHeight) {
+                        
+                        this.enterBuilding(building);
+                    }
+                });
+            }
+
+            checkInteriorExit() {
+                // Exit door at bottom center
+                const exitX = this.canvas.width / 2 - 20;
+                const exitY = this.canvas.height - 40;
+                
+                if (this.player.x >= exitX && this.player.x <= exitX + 40 &&
+                    this.player.y >= exitY && this.player.y <= exitY + 40) {
+                    this.exitBuilding();
+                }
+            }
+
+            enterBuilding(building) {
+                this.currentScreen = 'interior';
+                this.currentBuilding = building;
+                this.player.x = this.canvas.width / 2 - this.player.size / 2;
+                this.player.y = this.canvas.height - 80;
+                this.locationInfo.textContent = building.name;
+                this.status.textContent = `You entered the ${building.name}. Press Space to talk to ${building.npc.name}. Type to ask questions!`;
+                this.currentInput = '';
+            }
+
+            exitBuilding() {
+                if (this.currentScreen === 'interior' && this.currentBuilding) {
+                    this.currentScreen = 'overworld';
+                    
+                    // Position player in front of the building
+                    const doorX = (this.currentBuilding.x + this.currentBuilding.width/2) * this.tileSize;
+                    const doorY = (this.currentBuilding.y + this.currentBuilding.height) * this.tileSize + 20;
+                    
+                    this.player.x = doorX - this.player.size / 2;
+                    this.player.y = doorY;
+                    
+                    this.currentBuilding = null;
+                    this.locationInfo.textContent = 'Digital Plaza';
+                    this.status.textContent = 'You exited the building.';
+                    this.currentInput = '';
+                    this.typingMode = false; // Reset typing mode when leaving
+                }
+            }
+
+            interact() {
+                if (this.currentScreen === 'interior' && this.currentBuilding) {
+                    const npc = this.currentBuilding.npc;
+                    const distance = Math.sqrt(
+                        Math.pow(this.player.x - npc.x, 2) + 
+                        Math.pow(this.player.y - npc.y, 2)
+                    );
+                    
+                    if (distance < 50) {
+                        this.status.textContent = `${npc.name}: "${npc.dialogue}"`;
+                    } else {
+                        this.status.textContent = "Move closer to talk to the NPC.";
+                    }
+                } else {
+                    this.status.textContent = "Nothing to interact with here. Enter a building to find NPCs.";
+                }
+            }
+
+            updateNPCInteraction() {
+                if (this.currentBuilding && this.currentBuilding.npc) {
+                    const npc = this.currentBuilding.npc;
+                    const distance = Math.sqrt(
+                        Math.pow(this.player.x - npc.x, 2) + 
+                        Math.pow(this.player.y - npc.y, 2)
+                    );
+                    
+                    // Show distance indicator
+                    this.npcDistance.style.display = 'block';
+                    this.npcDistance.textContent = `📍 Distance to ${npc.name}: ${Math.round(distance)}px`;
+                    
+                    // Show interaction hint when close enough
+                    if (distance < 50) {
+                        this.interactionHint.style.display = 'block';
+                        this.interactionHint.textContent = `🎯 PRESS SPACE TO TALK TO ${npc.name.toUpperCase()}! OR PRESS T TO TYPE! 🎯`;
+                    } else {
+                        this.interactionHint.style.display = 'none';
+                    }
+                }
+            }
+
+            renderOverworld() {
+                // Clear canvas
+                this.ctx.fillStyle = '#2d5016';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Draw grass texture
+                this.ctx.fillStyle = '#3a6b1a';
+                for (let x = 0; x < this.canvas.width; x += 40) {
+                    for (let y = 0; y < this.canvas.height; y += 40) {
+                        if ((x + y) % 80 === 0) {
+                            this.ctx.fillRect(x, y, 8, 8);
+                        }
+                    }
+                }
+
+                // Draw paths
+                this.ctx.fillStyle = '#8B7355';
+                this.paths.forEach(pathKey => {
+                    const [x, y] = pathKey.split(',').map(Number);
+                    this.ctx.fillRect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize);
+                    
+                    // Add path texture
+                    this.ctx.fillStyle = '#A0895C';
+                    this.ctx.fillRect(x * this.tileSize + 4, y * this.tileSize + 4, 4, 4);
+                    this.ctx.fillRect(x * this.tileSize + 20, y * this.tileSize + 20, 4, 4);
+                    this.ctx.fillStyle = '#8B7355';
+                });
+
+                // Draw buildings
+                this.buildings.forEach(building => {
+                    const x = building.x * this.tileSize;
+                    const y = building.y * this.tileSize;
+                    const width = building.width * this.tileSize;
+                    const height = building.height * this.tileSize;
+
+                    // Building base
+                    this.ctx.fillStyle = building.color;
+                    this.ctx.fillRect(x, y, width, height);
+
+                    // Building outline
+                    this.ctx.strokeStyle = '#000';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(x, y, width, height);
+
+                    // Roof
+                    this.ctx.fillStyle = '#654321';
+                    this.ctx.fillRect(x - 4, y - 8, width + 8, 12);
+
+                    // Door (entrance highlight) - make it more visible
+                    this.ctx.fillStyle = '#8B4513';
+                    this.ctx.fillRect(x + width/2 - 12, y + height - 20, 24, 20);
+                    this.ctx.fillStyle = '#00FF00'; // Bright green entrance
+                    this.ctx.fillRect(x + width/2 - 10, y + height - 18, 20, 4);
+                    this.ctx.fillStyle = '#FFFF00'; // Yellow highlight
+                    this.ctx.fillRect(x + width/2 - 8, y + height - 12, 16, 2);
+
+                    // Windows
+                    if (building.width >= 3) {
+                        this.ctx.fillStyle = '#87CEEB';
+                        this.ctx.fillRect(x + 8, y + 8, 8, 8);
+                        if (building.width >= 4) {
+                            this.ctx.fillRect(x + width - 16, y + 8, 8, 8);
+                        }
+                    }
+
+                    // Building name
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.font = '10px Courier New';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText(building.name, x + width/2, y - 12);
+                });
+            }
+
+            renderInterior() {
+                // Clear canvas with interior floor
+                this.ctx.fillStyle = '#8B4513';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Floor pattern
+                this.ctx.fillStyle = '#A0522D';
+                for (let x = 0; x < this.canvas.width; x += 32) {
+                    for (let y = 0; y < this.canvas.height; y += 32) {
+                        if ((Math.floor(x/32) + Math.floor(y/32)) % 2 === 0) {
+                            this.ctx.fillRect(x, y, 32, 32);
+                        }
+                    }
+                }
+
+                // Walls
+                this.ctx.fillStyle = '#654321';
+                this.ctx.fillRect(0, 0, this.canvas.width, 20); // Top wall
+                this.ctx.fillRect(0, 0, 20, this.canvas.height); // Left wall
+                this.ctx.fillRect(this.canvas.width - 20, 0, 20, this.canvas.height); // Right wall
+                this.ctx.fillRect(0, this.canvas.height - 40, this.canvas.width, 40); // Bottom wall
+
+                // Exit door
+                this.ctx.fillStyle = '#8B4513';
+                this.ctx.fillRect(this.canvas.width / 2 - 20, this.canvas.height - 40, 40, 40);
+                this.ctx.fillStyle = '#FFFF00';
+                this.ctx.fillRect(this.canvas.width / 2 - 18, this.canvas.height - 35, 36, 4);
+
+                // Interior decorations based on building type
+                this.renderInteriorDecorations();
+
+                // Draw NPC
+                const npc = this.currentBuilding.npc;
+                this.ctx.fillStyle = npc.color;
+                this.ctx.fillRect(npc.x - 8, npc.y - 8, 16, 16);
+                
+                // NPC outline
+                this.ctx.strokeStyle = '#000';
+                this.ctx.lineWidth = 1;
+                this.ctx.strokeRect(npc.x - 8, npc.y - 8, 16, 16);
+
+                // NPC face
+                this.ctx.fillStyle = '#FFE4B5';
+                this.ctx.fillRect(npc.x - 6, npc.y - 6, 12, 10);
+                
+                // NPC eyes
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(npc.x - 4, npc.y - 4, 2, 2);
+                this.ctx.fillRect(npc.x + 2, npc.y - 4, 2, 2);
+
+                // NPC name
+                this.ctx.fillStyle = 'white';
+                this.ctx.font = '12px Courier New';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(npc.name, npc.x, npc.y - 20);
+            }
+
+            renderInteriorDecorations() {
+                const building = this.currentBuilding;
+                
+                switch(building.name) {
+                    case 'Cybersecurity Hub':
+                        // Computer screens
+                        this.ctx.fillStyle = '#000';
+                        this.ctx.fillRect(150, 200, 40, 30);
+                        this.ctx.fillStyle = '#00FF00';
+                        this.ctx.fillRect(155, 205, 30, 20);
+                        break;
+                    
+                    case 'Scam Bar':
+                        // Warning signs
+                        this.ctx.fillStyle = '#FF0000';
+                        this.ctx.fillRect(200, 100, 30, 30);
+                        this.ctx.fillStyle = '#FFFF00';
+                        this.ctx.font = '20px Courier New';
+                        this.ctx.fillText('!', 215, 120);
+                        break;
+                    
+                    case 'Artificial Intelligence Center':
+                        // Server racks
+                        this.ctx.fillStyle = '#333';
+                        this.ctx.fillRect(100, 100, 20, 80);
+                        this.ctx.fillRect(600, 100, 20, 80);
+                        // Blinking lights
+                        this.ctx.fillStyle = '#00FF00';
+                        this.ctx.fillRect(105, 110, 4, 4);
+                        this.ctx.fillRect(105, 130, 4, 4);
+                        break;
+                    
+                    case 'Comment Section':
+                        // Speech bubbles
+                        this.ctx.fillStyle = '#87CEEB';
+                        this.ctx.fillRect(200, 150, 60, 30);
+                        this.ctx.fillRect(500, 200, 60, 30);
+                        break;
+                }
+            }
+
+            renderPlayer() {
+                // Draw player
+                this.ctx.fillStyle = this.player.color;
+                this.ctx.fillRect(this.player.x, this.player.y, this.player.size, this.player.size);
+                
+                // Player outline
+                this.ctx.strokeStyle = '#000';
+                this.ctx.lineWidth = 1;
+                this.ctx.strokeRect(this.player.x, this.player.y, this.player.size, this.player.size);
+
+                // Player face
+                this.ctx.fillStyle = '#FFE4B5';
+                this.ctx.fillRect(this.player.x + 2, this.player.y + 2, 12, 10);
+                
+                // Eyes
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(this.player.x + 4, this.player.y + 4, 2, 2);
+                this.ctx.fillRect(this.player.x + 10, this.player.y + 4, 2, 2);
+            }
+
+            render() {
+                if (this.currentScreen === 'overworld') {
+                    this.renderOverworld();
+                } else if (this.currentScreen === 'interior') {
+                    this.renderInterior();
+                }
+                
+                this.renderPlayer();
+            }
+
+            gameLoop() {
+                this.update();
+                this.render();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+
+            setupGameOverlay() {
+                // Close game button
+                this.closeGameBtn.addEventListener('click', () => {
+                    this.closeMiniGame();
+                });
+                
+                // ESC key to close game
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.gameMode) {
+                        this.closeMiniGame();
+                    }
+                });
+            }
+
+            openMiniGame(gameUrl, npcName) {
+                this.gameMode = true;
+                this.gameFrame.src = gameUrl;
+                this.gameTitle.textContent = `${npcName}'s Mini-Game`;
+                this.gameOverlay.style.display = 'flex';
+            }
+
+            closeMiniGame() {
+                this.gameMode = false;
+                this.gameFrame.src = '';
+                this.gameOverlay.style.display = 'none';
+                this.status.textContent = `Welcome back! You can continue exploring or try another mini-game.`;
+            }
+        }
+
+        // Start the game
+        window.addEventListener('load', () => {
+            new RPGGame();
+        });
+    </script>
+</body>
+</html> 
